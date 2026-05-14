@@ -3,12 +3,13 @@ package ru.practicum.shareit.item.mapper;
 import lombok.extern.slf4j.Slf4j;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.user.User;
 
 @Slf4j
 public class ItemMapper {
-    public static Item mapToItem(long ownerId, ItemDto itemDto) {
+    public static Item mapToItem(User owner, ItemDto itemDto) {
         Item item = new Item();
-        item.setOwnerId(ownerId);
+        item.setOwner(owner);
         item.setName(itemDto.getName());
         item.setDescription(itemDto.getDescription());
         if (itemDto.getIsAvailableForRent() != null) {
@@ -30,22 +31,5 @@ public class ItemMapper {
         log.debug("Вещь класса Item {} преобразована в объект класса ItemDto {}", item, itemDto);
 
         return itemDto;
-    }
-
-    public static void editItemDtoFields(Item editingItem, ItemDto changesToItem) {
-        if (changesToItem.getName() != null) {
-            editingItem.setName(changesToItem.getName());
-            log.debug("У вещи {} отредактировано поле name на {}", editingItem, changesToItem.getName());
-        }
-
-        if (changesToItem.getDescription() != null) {
-            editingItem.setDescription(changesToItem.getDescription());
-            log.debug("У вещи {} отредактировано поле description на {}", editingItem, changesToItem.getDescription());
-        }
-
-        if (changesToItem.getIsAvailableForRent() != null) {
-            editingItem.setAvailableForRent(changesToItem.getIsAvailableForRent());
-            log.debug("У вещи {} отредактировано поле isAvailableForRent на {}", editingItem, changesToItem.getIsAvailableForRent());
-        }
     }
 }

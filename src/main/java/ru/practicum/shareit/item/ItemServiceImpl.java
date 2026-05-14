@@ -8,7 +8,9 @@ import ru.practicum.shareit.exceptions.NotFoundException;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.mapper.ItemMapper;
 import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.user.User;
 import ru.practicum.shareit.user.UserService;
+import ru.practicum.shareit.user.mapper.UserMapper;
 
 import java.util.Collection;
 
@@ -24,8 +26,8 @@ public class ItemServiceImpl implements ItemService {
         log.trace("Пользователь с id {} инициировал создание вещи {}", userId, itemDto);
 
         //Получение пользователя для проверки начличия такого пользователя в хранилище
-        userService.getUserById(userId);
-        Item convertedRequestItem = ItemMapper.mapToItem(userId, itemDto);
+        User owner = UserMapper.mapToUser(userService.getUserById(userId));
+        Item convertedRequestItem = ItemMapper.mapToItem(owner, itemDto);
         Item createdItem = itemStorage.createItem(convertedRequestItem);
         log.debug("Создана вещь {} и добавлена в хранилище", createdItem);
         return ItemMapper.mapToItemDto(createdItem);
@@ -39,7 +41,7 @@ public class ItemServiceImpl implements ItemService {
         Item editingItem = getItemByIdOrThrow(itemId);
         checkUsersAccessToEditItem(userId, editingItem);
 
-        ItemMapper.editItemDtoFields(editingItem, changesToItem);
+        editItemFields(editingItem, changesToItem);
         Item editedItem = itemStorage.editItem(itemId, editingItem);
         log.debug("Отредактированы данные вещи {}, стало - {}", editingItem, editedItem);
         return ItemMapper.mapToItemDto(editedItem);
@@ -73,7 +75,7 @@ public class ItemServiceImpl implements ItemService {
     }
 
     private void checkUsersAccessToEditItem(long userId, Item editingItem) {
-        if (editingItem.getOwnerId() != userId) {
+        if (editingItem.getOwner().getId() != userId) {
             log.warn("Пользователю с id {} отказано в доступе к редактированию вещи {}", userId, editingItem);
             throw new IncorrectAccessException(String.format("У пользователя с id %d нет прав доступа для редактирования вещи с id %d", userId, editingItem.getId()));
         }
@@ -85,5 +87,22 @@ public class ItemServiceImpl implements ItemService {
                     log.info("Вещь с id {} отсутствует", itemId);
                     return new NotFoundException(String.format("Вещь с id %d отсутствует", itemId));
                 });
+    }
+
+    private static void editItemFields(Item editingItem, ItemDto changesToItem) {
+        if (changesToItem.getName() != null) {
+            editingItem.setName(changesToItem.getName());
+            log.debug("У вещи {} отредактировано поле name на {}", editingItem, changesToItem.getName());
+        }
+
+        if (changesToItem.getDescription() != null) {
+            editingItem.setDescription(changesToItem.getDescription());
+            log.debug("У вещи {} отредактировано поле description на {}", editingItem, changesToItem.getDescription());
+        }
+
+        if (changesToItem.getIsAvailableForRent() != null) {
+            editingItem.setAvailableForRent(changesToItem.getIsAvailableForRent());
+            log.debug("У вещи {} отредактировано поле isAvailableForRent на {}", editingItem, changesToItem.getIsAvailableForRent());
+        }
     }
 }

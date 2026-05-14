@@ -26,19 +26,15 @@ public class UserStorageImpl extends ParentStorage<User> implements UserStorage 
         user.setId(id);
         log.debug("Сформирован id {} для нового пользователя", id);
 
-        try {
-            elementsMap.put(id, user);
-        } catch (RuntimeException e) {
-            log.error("Ошибка добавления нового пользователя {}, сообщение об ошибке - {}", user, e.getMessage());
-            throw new RuntimeException("Ошибка добавления нового пользователя");
-        }
+        elementsMap.put(id, user);
 
         return user;
     }
 
     @Override
     public User editUser(long userId, User editingUser) {
-        return elementsMap.put(userId, editingUser);
+        elementsMap.put(userId, editingUser);
+        return elementsMap.get(userId);
     }
 
     @Override

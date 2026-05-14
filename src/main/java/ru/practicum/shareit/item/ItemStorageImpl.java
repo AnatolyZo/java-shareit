@@ -17,12 +17,7 @@ public class ItemStorageImpl extends ParentStorage<Item> implements ItemStorage 
         item.setId(id);
         log.debug("Сформирован id {} для новой вещи", id);
 
-        try {
-            elementsMap.put(id, item);
-        } catch (RuntimeException e) {
-            log.error("Ошибка добавления новой вещи {}, сообщение об ошибке - {}", item, e.getMessage());
-            throw new RuntimeException("Ошибка добавления новой вещи");
-        }
+        elementsMap.put(id, item);
 
         return item;
     }
@@ -41,7 +36,7 @@ public class ItemStorageImpl extends ParentStorage<Item> implements ItemStorage 
     public Collection<Item> getAllItems(long userId) {
         return elementsMap.values()
                 .stream()
-                .filter(item -> item.getOwnerId() == userId)
+                .filter(item -> item.getOwner().getId() == userId)
                 .toList();
     }
 

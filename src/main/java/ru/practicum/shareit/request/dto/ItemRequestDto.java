@@ -1,7 +1,12 @@
 package ru.practicum.shareit.request.dto;
 
-/**
- * TODO Sprint add-item-requests.
- */
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
 public class ItemRequestDto {
+    private String description;
+    private long requestorId;
+    private LocalDateTime created;
 }

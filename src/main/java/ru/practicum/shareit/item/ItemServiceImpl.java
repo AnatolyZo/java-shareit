@@ -3,75 +3,113 @@ package ru.practicum.shareit.item;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.shareit.booking.BookingRepository;
 import ru.practicum.shareit.exceptions.IncorrectAccessException;
-import ru.practicum.shareit.exceptions.NotFoundException;
+import ru.practicum.shareit.item.comment.Comment;
+import ru.practicum.shareit.item.comment.CommentRepository;
+import ru.practicum.shareit.item.comment.CommentService;
+import ru.practicum.shareit.item.comment.dto.CommentDto;
+import ru.practicum.shareit.item.comment.dto.CommentDtoResponse;
+import ru.practicum.shareit.item.comment.mapper.CommentMapper;
 import ru.practicum.shareit.item.dto.ItemDto;
+import ru.practicum.shareit.item.dto.ItemDtoResponse;
+import ru.practicum.shareit.item.dto.ItemDtoResponseForOwner;
 import ru.practicum.shareit.item.mapper.ItemMapper;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.User;
-import ru.practicum.shareit.user.UserService;
-import ru.practicum.shareit.user.mapper.UserMapper;
+import ru.practicum.shareit.validation.EntityExistsValidationService;
 
-import java.util.Collection;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class ItemServiceImpl implements ItemService {
-    private final ItemStorage itemStorage;
-    private final UserService userService;
+@Transactional(readOnly = true)
+public class ItemServiceImpl implements ItemService, CommentService {
+    private final ItemRepository itemRepository;
+    private final CommentRepository commentRepository;
+    private final BookingRepository bookingRepository;
+    private final EntityExistsValidationService entityExistsValidationService;
 
     @Override
-    public ItemDto createItem(long userId, ItemDto itemDto) {
+    @Transactional
+    public ItemDtoResponse createItem(long userId, ItemDto itemDto) {
         log.trace("Пользователь с id {} инициировал создание вещи {}", userId, itemDto);
 
         //Получение пользователя для проверки начличия такого пользователя в хранилище
-        User owner = UserMapper.mapToUser(userService.getUserById(userId));
+        User owner = entityExistsValidationService.getUserByIdOrThrow(userId);
         Item convertedRequestItem = ItemMapper.mapToItem(owner, itemDto);
-        Item createdItem = itemStorage.createItem(convertedRequestItem);
+        Item createdItem = itemRepository.save(convertedRequestItem);
         log.debug("Создана вещь {} и добавлена в хранилище", createdItem);
-        return ItemMapper.mapToItemDto(createdItem);
+        return ItemMapper.mapToItemDtoResponse(createdItem);
     }
 
     @Override
-    public ItemDto editItem(long userId, long itemId, ItemDto changesToItem) {
+    @Transactional
+    public ItemDtoResponse editItem(long userId, long itemId, ItemDto changesToItem) {
         log.trace("Пользователь с id {} инициировал редактирование вещи с id {}", userId, itemId);
 
         //Проверка наличия вещи в хранилище и права доступа пользователя к этой вещи
-        Item editingItem = getItemByIdOrThrow(itemId);
+        Item editingItem = entityExistsValidationService.getItemByIdOrThrow(itemId);
         checkUsersAccessToEditItem(userId, editingItem);
 
         editItemFields(editingItem, changesToItem);
-        Item editedItem = itemStorage.editItem(itemId, editingItem);
+        Item editedItem = itemRepository.save(editingItem);
         log.debug("Отредактированы данные вещи {}, стало - {}", editingItem, editedItem);
-        return ItemMapper.mapToItemDto(editedItem);
+        return ItemMapper.mapToItemDtoResponse(editedItem);
     }
 
     @Override
-    public ItemDto getItemById(long userId, long itemId) {
+    public ItemDtoResponseForOwner getItemDtoById(long userId, long itemId) {
         log.trace("Пользователь с id {} инициировал получение вещи с id {}", userId, itemId);
-        Item item = getItemByIdOrThrow(itemId);
-        return ItemMapper.mapToItemDto(item);
+        Item item = entityExistsValidationService.getItemByIdOrThrow(itemId);
+        List<Comment> comments = commentRepository.findByItem_IdOrderByCreatedDesc(itemId);
+        List<CommentDtoResponse> convertedComments = comments.stream()
+                .map(CommentMapper::mapToCommentDtoResponse)
+                .toList();
+        return ItemMapper.mapToItemDtoResponseForOwner(item, null, null, convertedComments);
     }
 
     @Override
-    public Collection<ItemDto> getAllItems(long userId) {
+    public List<ItemDtoResponseForOwner> getAllItems(long userId) {
         log.trace("Пользователь с id {} инициировал получение всех вещей", userId);
-
-        return itemStorage.getAllItems(userId)
+        LocalDateTime now = LocalDateTime.now();
+        return itemRepository.findByOwnerId(userId)
                 .stream()
-                .map(ItemMapper::mapToItemDto)
+                .map(item -> {
+                    LocalDateTime lastBookingDate = bookingRepository.findLastBookingEnd(item.getId(), now);
+                    LocalDateTime nextBookingDate = bookingRepository.findNextBookingStart(item.getId(), now);
+                    List<Comment> comments = commentRepository.findByItem_IdOrderByCreatedDesc(item.getId());
+                    List<CommentDtoResponse> convertedComments = comments.stream()
+                            .map(CommentMapper::mapToCommentDtoResponse)
+                            .toList();
+                    return ItemMapper.mapToItemDtoResponseForOwner(item, lastBookingDate, nextBookingDate, convertedComments);
+                })
                 .toList();
     }
 
     @Override
-    public Collection<ItemDto> searchItems(long userId, String searchingSubstring) {
+    public List<ItemDtoResponse> searchItems(long userId, String searchingSubstring) {
         log.trace("Пользователь с id {} инициировал поиск вещий по подстроке \"{}\"", userId, searchingSubstring);
 
-        return itemStorage.searchItems(searchingSubstring)
+        return itemRepository.findByNameOrDescription(searchingSubstring)
                 .stream()
-                .map(ItemMapper::mapToItemDto)
+                .map(ItemMapper::mapToItemDtoResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public CommentDtoResponse createComment(long authorId, long itemId, CommentDto commentDto) {
+        User author = entityExistsValidationService.getUserByIdOrThrow(authorId);
+        Item item = entityExistsValidationService.getItemByIdOrThrow(itemId);
+        entityExistsValidationService.checkUserHasCompletedBooking(authorId, itemId);
+
+        Comment comment = CommentMapper.mapToComment(author, item, commentDto);
+        Comment createdComment = commentRepository.save(comment);
+        return CommentMapper.mapToCommentDtoResponse(createdComment);
     }
 
     private void checkUsersAccessToEditItem(long userId, Item editingItem) {
@@ -81,15 +119,7 @@ public class ItemServiceImpl implements ItemService {
         }
     }
 
-    private Item getItemByIdOrThrow(long itemId) {
-        return itemStorage.getItemById(itemId)
-                .orElseThrow(() -> {
-                    log.info("Вещь с id {} отсутствует", itemId);
-                    return new NotFoundException(String.format("Вещь с id %d отсутствует", itemId));
-                });
-    }
-
-    private static void editItemFields(Item editingItem, ItemDto changesToItem) {
+    private void editItemFields(Item editingItem, ItemDto changesToItem) {
         if (changesToItem.getName() != null) {
             editingItem.setName(changesToItem.getName());
             log.debug("У вещи {} отредактировано поле name на {}", editingItem, changesToItem.getName());

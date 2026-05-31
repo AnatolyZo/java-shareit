@@ -3,6 +3,7 @@ package ru.practicum.shareit.user.mapper;
 import lombok.extern.slf4j.Slf4j;
 import ru.practicum.shareit.user.User;
 import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.dto.UserDtoResponse;
 
 @Slf4j
 public class UserMapper {
@@ -17,14 +18,14 @@ public class UserMapper {
         return user;
     }
 
-    public static UserDto mapToUserDto(User user) {
-        UserDto userDto = new UserDto();
-        userDto.setId(user.getId());
-        userDto.setName(user.getName());
-        userDto.setEmail(user.getEmail());
+    public static UserDtoResponse mapToUserDtoResponse(User user) {
+        UserDtoResponse userDtoResponse = new UserDtoResponse();
+        userDtoResponse.setId(user.getId());
+        userDtoResponse.setName(user.getName());
+        userDtoResponse.setEmail(user.getEmail());
 
-        log.debug("Пользователь класса User {} преобразована в объект класса UserDto {}", user, userDto);
+        log.debug("Пользователь класса User {} преобразована в объект класса UserDtoResponse {}", user, userDtoResponse);
 
-        return userDto;
+        return userDtoResponse;
     }
 }

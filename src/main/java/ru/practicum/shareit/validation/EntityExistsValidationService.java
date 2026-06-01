@@ -49,12 +49,9 @@ public class EntityExistsValidationService {
 
     public void checkUserHasCompletedBooking(long authorId, long itemId) {
         LocalDateTime now = LocalDateTime.now();
-        List<Booking> allUserBookings = bookingRepository.findByBookerIdAndEndIsBeforeOrderByCreatedDesc(authorId, now);
-        List<Booking> usersItemBookings = allUserBookings.stream()
-                .filter(booking -> booking.getItem().getId() == itemId)
-                .toList();
+        boolean isExistsCompletedBookings = bookingRepository.existsByBookerIdAndItemIdAndEndIsBefore(authorId, itemId, now);
 
-        if (usersItemBookings.isEmpty()) {
+        if (!isExistsCompletedBookings) {
             log.warn("Пользователь с id {} не имеет завершенных бронирований предмета с id {}, комментирование запрещено", authorId, itemId);
             throw new InvalidValueException(String.format("Пользователь с id %d не имеет завершенных бронирований предмета с id %d, комментирование запрещено", authorId, itemId));
         }

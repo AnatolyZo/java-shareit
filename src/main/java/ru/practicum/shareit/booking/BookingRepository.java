@@ -35,4 +35,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @Query("SELECT MIN(b.start) FROM Booking b WHERE b.item.id = :itemId AND b.status = 'APPROVED' AND b.start > :now")
     LocalDateTime findNextBookingStart(@Param("itemId") long itemId, @Param("now") LocalDateTime now);
+
+    boolean existsByBookerIdAndItemIdAndEndIsBefore(long bookerId, long itemId, LocalDateTime now);
 }

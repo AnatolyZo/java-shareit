@@ -6,8 +6,6 @@ import jakarta.validation.ConstraintValidatorContext;
 import java.time.LocalDateTime;
 
 public class DateValidator implements ConstraintValidator<DateNotInPast, LocalDateTime> {
-    private final LocalDateTime now = LocalDateTime.now();
-
     @Override
     public void initialize(DateNotInPast constraintAnnotation) {
     }
@@ -18,6 +16,6 @@ public class DateValidator implements ConstraintValidator<DateNotInPast, LocalDa
             return true;
         }
 
-        return value.isAfter(now);
+        return !value.isBefore(LocalDateTime.now());
     }
 }

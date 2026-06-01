@@ -80,7 +80,6 @@ public class BookingServiceImpl implements BookingService {
         log.trace("Пользователь с id {} инициировал получение всех иницированных им бронирований с критерием отбора \"{}\"", bookerId, state);
         List<Booking> bookings;
         LocalDateTime now = LocalDateTime.now();
-//        Sort sort = Sort.by(Sort.Direction.DESC, "created");
 
         if (state.equals(BookingSearchValues.ALL.name())) {
             bookings = bookingRepository.findByBookerIdOrderByCreatedDesc(bookerId);

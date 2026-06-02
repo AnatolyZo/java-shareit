@@ -3,66 +3,69 @@ package ru.practicum.shareit.user;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import ru.practicum.shareit.exceptions.NotFoundException;
+import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.dto.UserDtoResponse;
 import ru.practicum.shareit.user.mapper.UserMapper;
+import ru.practicum.shareit.validation.EntityExistsValidationService;
 
 import java.util.Collection;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class UserServiceImpl implements UserService {
-    private final UserStorage userStorage;
+    private final UserRepository userRepository;
+    private final EntityExistsValidationService entityExistsValidationService;
 
     @Override
-    public Collection<UserDto> getAllUsers() {
+    public Collection<UserDtoResponse> getAllUsers() {
         log.trace("Инициировано получение списка всех пользователей");
-        return userStorage.getAllUsers()
+        return userRepository.findAll()
                 .stream()
-                .map(UserMapper::mapToUserDto)
+                .map(UserMapper::mapToUserDtoResponse)
                 .toList();
     }
 
     @Override
-    public UserDto getUserById(long userId) {
+    public UserDtoResponse getUserDtoById(long userId) {
         log.trace("Инициировано получение пользователя с id {}", userId);
-        return userStorage.getUserById(userId)
-                .map(UserMapper::mapToUserDto)
-                .orElseThrow(() -> {
-                    log.info("Пользователь с id {} отсутствует", userId);
-                    return new NotFoundException(String.format("Пользователь с id %d отсутствует", userId));
-                });
+        User user = entityExistsValidationService.getUserByIdOrThrow(userId);
+        return UserMapper.mapToUserDtoResponse(user);
     }
 
     @Override
-    public UserDto createUser(UserDto userDto) {
+    @Transactional
+    public UserDtoResponse createUser(UserDto userDto) {
         log.trace("Инициировано создание пользователя {}", userDto);
         User convertedRequestUser = UserMapper.mapToUser(userDto);
-        User createdUser = userStorage.createUser(convertedRequestUser);
+        User createdUser = userRepository.save(convertedRequestUser);
         log.debug("Создан пользователь {} и добавлен в хранилище", createdUser);
-        return UserMapper.mapToUserDto(createdUser);
+        return UserMapper.mapToUserDtoResponse(createdUser);
     }
 
     @Override
-    public UserDto editUser(long userId, UserDto changesToUser) {
+    @Transactional
+    public UserDtoResponse editUser(long userId, UserDto changesToUser) {
         log.trace("Инициировано редактирование пользователя с id {}", userId);
-        User editingUser = UserMapper.mapToUser(getUserById(userId));
+        User editingUser = entityExistsValidationService.getUserByIdOrThrow(userId);
         editUserFields(editingUser, changesToUser);
-        User editedUser = userStorage.editUser(userId, editingUser);
+        User editedUser = userRepository.save(editingUser);
         log.debug("Отредактированы данные пользователя c id {}, стало - {}", userId, editedUser);
-        return UserMapper.mapToUserDto(editedUser);
+        return UserMapper.mapToUserDtoResponse(editedUser);
     }
 
     @Override
-    public UserDto deleteUser(long userId) {
+    @Transactional
+    public UserDtoResponse deleteUser(long userId) {
         log.trace("Инициировано удаление пользователя с id {}", userId);
 
         //Получение пользователя для проверки его наличия в хранилище
-        getUserById(userId);
-        User user = userStorage.deleteUser(userId);
+        User user = entityExistsValidationService.getUserByIdOrThrow(userId);
+        userRepository.deleteById(userId);
         log.debug("Пользователь с id {} удален", userId);
-        return UserMapper.mapToUserDto(user);
+        return UserMapper.mapToUserDtoResponse(user);
     }
 
     private static void editUserFields(User editingUser, UserDto changesToUser) {

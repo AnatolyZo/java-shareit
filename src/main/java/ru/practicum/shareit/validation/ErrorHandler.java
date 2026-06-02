@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.practicum.shareit.exceptions.IncorrectAccessException;
+import ru.practicum.shareit.exceptions.InvalidValueException;
 import ru.practicum.shareit.exceptions.NotFoundException;
 
 import java.lang.reflect.Method;
@@ -55,5 +56,11 @@ public class ErrorHandler {
     public Map<String, String> handleMissingRequestHeaderException(final MissingRequestHeaderException e) {
         log.warn("Отсутствует обязательный заголовок {}", e.getHeaderName());
         return Map.of("Отсутствует обязательный заголовок", e.getMessage());
+    }
+
+    @ExceptionHandler
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleInvalidValueException(final InvalidValueException e) {
+        return Map.of("Недопустимое значение поля", e.getMessage());
     }
 }

@@ -42,9 +42,9 @@ public class BookingServiceTests {
         BookingDto request = formBookingDto();
         User booker = formBooker();
         Item item = formItem();
-        LocalDateTime created = LocalDateTime.now();
-        Booking savedBooking = formBooking(item, booker, created);
-        BookingDtoResponse expectedBooking = formExpectedBooking(created);
+        LocalDateTime now = LocalDateTime.now();
+        Booking savedBooking = formBooking(item, booker, now, null, null);
+        BookingDtoResponse expectedBooking = formExpectedBooking(now, null, null);
 
         when(entityExistsValidationService.getUserByIdOrThrow(userId)).thenReturn(booker);
         when(entityExistsValidationService.getItemByIdOrThrow(request.getItemId())).thenReturn(item);
@@ -105,10 +105,10 @@ public class BookingServiceTests {
         long userId = 1L;
         long bookingId = 1L;
         boolean state = true;
-        LocalDateTime created = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
 
-        Booking booking = formBooking(formItem(), formBooker(), created);
-        BookingDtoResponse expectedBooking = formExpectedBooking(created);
+        Booking booking = formBooking(formItem(), formBooker(), now, null, null);
+        BookingDtoResponse expectedBooking = formExpectedBooking(now, null, null);
         expectedBooking.setStatus(BookingStatus.APPROVED);
 
         when(entityExistsValidationService.getBookingByIdOrThrow(bookingId)).thenReturn(booking);
@@ -124,10 +124,10 @@ public class BookingServiceTests {
         long userId = 1L;
         long bookingId = 1L;
         boolean state = false;
-        LocalDateTime created = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
 
-        Booking booking = formBooking(formItem(), formBooker(), created);
-        BookingDtoResponse expectedBooking = formExpectedBooking(created);
+        Booking booking = formBooking(formItem(), formBooker(), now, null, null);
+        BookingDtoResponse expectedBooking = formExpectedBooking(now, null, null);
         expectedBooking.setStatus(BookingStatus.REJECTED);
 
         when(entityExistsValidationService.getBookingByIdOrThrow(bookingId)).thenReturn(booking);
@@ -158,9 +158,9 @@ public class BookingServiceTests {
         long userId = 3L;
         long bookingId = 1L;
         boolean state = true;
-        LocalDateTime created = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
 
-        Booking booking = formBooking(formItem(), formBooker(), created);
+        Booking booking = formBooking(formItem(), formBooker(), now, null, null);
 
         when(entityExistsValidationService.getBookingByIdOrThrow(bookingId)).thenReturn(booking);
 
@@ -174,10 +174,10 @@ public class BookingServiceTests {
     void getBookingById() {
         long userId = 1L;
         long bookingId = 1L;
-        LocalDateTime created = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
 
-        Booking booking = formBooking(formItem(), formBooker(), created);
-        BookingDtoResponse expectedBooking = formExpectedBooking(created);
+        Booking booking = formBooking(formItem(), formBooker(), now, null, null);
+        BookingDtoResponse expectedBooking = formExpectedBooking(now, null, null);
         when(entityExistsValidationService.getBookingByIdOrThrow(bookingId)).thenReturn(booking);
 
         BookingDtoResponse result = bookingService.getBookingById(userId, bookingId);
@@ -202,11 +202,81 @@ public class BookingServiceTests {
     @Test
     void getAllUsersBookings() {
         long bookerId = 2L;
-        String state = "WAITING";
+        String state = "ALL";
         LocalDateTime created = LocalDateTime.now();
 
-        List<Booking> bookings = List.of(formBooking(formItem(), formBooker(), created));
-        List<BookingDtoResponse> expectedBookings = List.of(formExpectedBooking(created));
+        List<Booking> bookings = List.of(formBooking(formItem(), formBooker(), created, null, null));
+        List<BookingDtoResponse> expectedBookings = List.of(formExpectedBooking(created, null, null));
+        when(bookingRepository.findByBookerIdOrderByCreatedDesc(bookerId))
+                .thenReturn(bookings);
+
+        List<BookingDtoResponse> result = bookingService.getAllUsersBookings(bookerId, state);
+
+        assertThat(result, equalTo(expectedBookings));
+    }
+
+    @Test
+    void getAllUsersBookingsWithCurrentStatus() {
+        long bookerId = 2L;
+        String state = "CURRENT";
+        LocalDateTime start = LocalDateTime.of(2026, 5, 1,12, 0,0);
+        LocalDateTime end = LocalDateTime.of(2026, 7, 3,12, 0,0);
+        LocalDateTime now = LocalDateTime.now();
+
+        List<Booking> bookings = List.of(formBooking(formItem(), formBooker(), now, start, end));
+        List<BookingDtoResponse> expectedBookings = List.of(formExpectedBooking(now, start, end));
+        when(bookingRepository.findByBookerIdAndStartIsBeforeAndEndIsAfter(eq(bookerId), any()))
+                .thenReturn(bookings);
+
+        List<BookingDtoResponse> result = bookingService.getAllUsersBookings(bookerId, state);
+
+        assertThat(result, equalTo(expectedBookings));
+    }
+
+    @Test
+    void getAllUsersBookingsWithPastStatus() {
+        long bookerId = 2L;
+        String state = "PAST";
+        LocalDateTime start = LocalDateTime.of(2026, 5, 1,12, 0,0);
+        LocalDateTime end = LocalDateTime.of(2026, 5, 3,12, 0,0);
+        LocalDateTime now = LocalDateTime.now();
+
+        List<Booking> bookings = List.of(formBooking(formItem(), formBooker(), now, start, end));
+        List<BookingDtoResponse> expectedBookings = List.of(formExpectedBooking(now, start, end));
+        when(bookingRepository.findByBookerIdAndEndIsBeforeOrderByCreatedDesc(eq(bookerId), any()))
+                .thenReturn(bookings);
+
+        List<BookingDtoResponse> result = bookingService.getAllUsersBookings(bookerId, state);
+
+        assertThat(result, equalTo(expectedBookings));
+    }
+
+    @Test
+    void getAllUsersBookingsWithFutureStatus() {
+        long bookerId = 2L;
+        String state = "FUTURE";
+        LocalDateTime start = LocalDateTime.of(2026, 8, 1,12, 0,0);
+        LocalDateTime end = LocalDateTime.of(2026, 8, 3,12, 0,0);
+        LocalDateTime now = LocalDateTime.now();
+
+        List<Booking> bookings = List.of(formBooking(formItem(), formBooker(), now, start, end));
+        List<BookingDtoResponse> expectedBookings = List.of(formExpectedBooking(now, start, end));
+        when(bookingRepository.findByBookerIdAndStartIsAfterOrderByCreatedDesc(eq(bookerId), any()))
+                .thenReturn(bookings);
+
+        List<BookingDtoResponse> result = bookingService.getAllUsersBookings(bookerId, state);
+
+        assertThat(result, equalTo(expectedBookings));
+    }
+
+    @Test
+    void getAllUsersBookingsWithWaitingStatus() {
+        long bookerId = 2L;
+        String state = "WAITING";
+        LocalDateTime now = LocalDateTime.now();
+
+        List<Booking> bookings = List.of(formBooking(formItem(), formBooker(), now, null, null));
+        List<BookingDtoResponse> expectedBookings = List.of(formExpectedBooking(now, null, null));
         when(bookingRepository.findByBookerIdAndStatusOrderByCreatedDesc(bookerId, BookingStatus.WAITING))
                 .thenReturn(bookings);
 
@@ -216,19 +286,157 @@ public class BookingServiceTests {
     }
 
     @Test
+    void getAllUsersBookingsWithRejectedStatus() {
+        long bookerId = 2L;
+        String state = "REJECTED";
+        LocalDateTime now = LocalDateTime.now();
+
+        Booking booking = formBooking(formItem(), formBooker(), now, null, null);
+        booking.setStatus(BookingStatus.REJECTED);
+
+        BookingDtoResponse expectedBooking = formExpectedBooking(now, null, null);
+        expectedBooking.setStatus(BookingStatus.REJECTED);
+
+        List<Booking> bookings = List.of(booking);
+        List<BookingDtoResponse> expectedBookings = List.of(expectedBooking);
+
+        when(bookingRepository.findByBookerIdAndStatusOrderByCreatedDesc(bookerId, BookingStatus.REJECTED))
+                .thenReturn(bookings);
+
+        List<BookingDtoResponse> result = bookingService.getAllUsersBookings(bookerId, state);
+
+        assertThat(result, equalTo(expectedBookings));
+    }
+
+    @Test
+    void getAllUsersBookingsWithInvalidStatus() {
+        long bookerId = 2L;
+        String state = "INVALID";
+
+        final InvalidValueException exception = assertThrows(InvalidValueException.class,
+                () -> bookingService.getAllUsersBookings(bookerId, state));
+
+        assertEquals(String.format("Недопустимый параметр поиска - %s", state), exception.getMessage());
+    }
+
+    @Test
     void getAllOwnersBookings() {
         long userId = 1L;
-        String state = "FUTURE";
-        LocalDateTime created = LocalDateTime.now();
+        String state = "ALL";
+        LocalDateTime now = LocalDateTime.now();
 
-        List<Booking> bookings = List.of(formBooking(formItem(), formBooker(), created));
-        List<BookingDtoResponse> expectedBookings = List.of(formExpectedBooking(created));
+        List<Booking> bookings = List.of(formBooking(formItem(), formBooker(), now, null, null));
+        List<BookingDtoResponse> expectedBookings = List.of(formExpectedBooking(now, null, null));
+        when(bookingRepository.findByItem_OwnerIdOrderByCreatedDesc(userId))
+                .thenReturn(bookings);
+
+        List<BookingDtoResponse> result = bookingService.getAllOwnersBookings(userId, state);
+
+        assertThat(result, equalTo(expectedBookings));
+    }
+
+    @Test
+    void getAllOwnersBookingsWithCurrentStatus() {
+        long userId = 1L;
+        String state = "CURRENT";
+        LocalDateTime start = LocalDateTime.of(2026, 5, 1,12, 0,0);
+        LocalDateTime end = LocalDateTime.of(2026, 7, 3,12, 0,0);
+        LocalDateTime now = LocalDateTime.now();
+
+        List<Booking> bookings = List.of(formBooking(formItem(), formBooker(), now, start, end));
+        List<BookingDtoResponse> expectedBookings = List.of(formExpectedBooking(now, start, end));
+        when(bookingRepository.findByItem_OwnerIdAndStartIsBeforeAndEndIsAfter(eq(userId), any(LocalDateTime.class)))
+                .thenReturn(bookings);
+
+        List<BookingDtoResponse> result = bookingService.getAllOwnersBookings(userId, state);
+
+        assertThat(result, equalTo(expectedBookings));
+    }
+
+    @Test
+    void getAllOwnersBookingsWithPastStatus() {
+        long userId = 1L;
+        String state = "PAST";
+        LocalDateTime start = LocalDateTime.of(2026, 5, 1,12, 0,0);
+        LocalDateTime end = LocalDateTime.of(2026, 5, 3,12, 0,0);
+        LocalDateTime now = LocalDateTime.now();
+
+        List<Booking> bookings = List.of(formBooking(formItem(), formBooker(), now, start, end));
+        List<BookingDtoResponse> expectedBookings = List.of(formExpectedBooking(now, start, end));
+        when(bookingRepository.findByItem_OwnerIdAndEndIsBeforeOrderByCreatedDesc(eq(userId), any(LocalDateTime.class)))
+                .thenReturn(bookings);
+
+        List<BookingDtoResponse> result = bookingService.getAllOwnersBookings(userId, state);
+
+        assertThat(result, equalTo(expectedBookings));
+    }
+
+    @Test
+    void getAllOwnersBookingsWithFutureStatus() {
+        long userId = 1L;
+        String state = "FUTURE";
+        LocalDateTime now = LocalDateTime.now();
+
+        List<Booking> bookings = List.of(formBooking(formItem(), formBooker(), now, null, null));
+        List<BookingDtoResponse> expectedBookings = List.of(formExpectedBooking(now, null, null));
         when(bookingRepository.findByItem_OwnerIdAndStartIsAfterOrderByCreatedDesc(eq(userId), any(LocalDateTime.class)))
                 .thenReturn(bookings);
 
         List<BookingDtoResponse> result = bookingService.getAllOwnersBookings(userId, state);
 
         assertThat(result, equalTo(expectedBookings));
+    }
+
+    @Test
+    void getAllOwnersBookingsWithWaitingStatus() {
+        long userId = 1L;
+        String state = "WAITING";
+        LocalDateTime start = LocalDateTime.of(2026, 5, 1,12, 0,0);
+        LocalDateTime end = LocalDateTime.of(2026, 6, 3,12, 0,0);
+        LocalDateTime now = LocalDateTime.now();
+
+        List<Booking> bookings = List.of(formBooking(formItem(), formBooker(), now, start, end));
+        List<BookingDtoResponse> expectedBookings = List.of(formExpectedBooking(now, start, end));
+        when(bookingRepository.findByItem_OwnerIdAndStatusOrderByCreatedDesc(userId, BookingStatus.WAITING))
+                .thenReturn(bookings);
+
+        List<BookingDtoResponse> result = bookingService.getAllOwnersBookings(userId, state);
+
+        assertThat(result, equalTo(expectedBookings));
+    }
+
+    @Test
+    void getAllOwnersBookingsWithRejectedStatus() {
+        long userId = 1L;
+        String state = "REJECTED";
+        LocalDateTime now = LocalDateTime.now();
+
+        Booking booking = formBooking(formItem(), formBooker(), now, null, null);
+        booking.setStatus(BookingStatus.REJECTED);
+
+        BookingDtoResponse expectedBooking = formExpectedBooking(now, null, null);
+        expectedBooking.setStatus(BookingStatus.REJECTED);
+
+        List<Booking> bookings = List.of(booking);
+        List<BookingDtoResponse> expectedBookings = List.of(expectedBooking);
+
+        when(bookingRepository.findByItem_OwnerIdAndStatusOrderByCreatedDesc(userId, BookingStatus.REJECTED))
+                .thenReturn(bookings);
+
+        List<BookingDtoResponse> result = bookingService.getAllOwnersBookings(userId, state);
+
+        assertThat(result, equalTo(expectedBookings));
+    }
+
+    @Test
+    void getAllOwnersBookingsWithInvalidStatus() {
+        long userId = 1L;
+        String state = "INVALID";
+
+        final InvalidValueException exception = assertThrows(InvalidValueException.class,
+                () -> bookingService.getAllOwnersBookings(userId, state));
+
+        assertEquals(String.format("Недопустимый параметр поиска - %s", state), exception.getMessage());
     }
 
     private BookingDto formBookingDto() {
@@ -268,9 +476,14 @@ public class BookingServiceTests {
         return item;
     }
 
-    private Booking formBooking(Item item, User booker, LocalDateTime created) {
-        LocalDateTime start = LocalDateTime.of(2026, 7, 1,12, 0,0);
-        LocalDateTime end = LocalDateTime.of(2026, 7, 3,12, 0,0);
+    private Booking formBooking(Item item, User booker, LocalDateTime created, LocalDateTime start, LocalDateTime end) {
+        if (start == null) {
+            start = LocalDateTime.of(2026, 7, 1,12, 0,0);
+        }
+
+        if (end == null) {
+            end = LocalDateTime.of(2026, 7, 3,12, 0,0);
+        }
 
         Booking booking = new Booking();
         booking.setId(1L);
@@ -284,9 +497,14 @@ public class BookingServiceTests {
         return booking;
     }
 
-    private BookingDtoResponse formExpectedBooking(LocalDateTime created) {
-        LocalDateTime start = LocalDateTime.of(2026, 7, 1,12, 0,0);
-        LocalDateTime end = LocalDateTime.of(2026, 7, 3,12, 0,0);
+    private BookingDtoResponse formExpectedBooking(LocalDateTime created, LocalDateTime start, LocalDateTime end) {
+        if (start == null) {
+            start = LocalDateTime.of(2026, 7, 1,12, 0,0);
+        }
+
+        if (end == null) {
+            end = LocalDateTime.of(2026, 7, 3,12, 0,0);
+        }
 
         UserDtoResponse owner = new UserDtoResponse();
         owner.setId(1L);

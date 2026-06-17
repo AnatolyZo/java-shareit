@@ -1,0 +1,42 @@
+package ru.practicum.shareit.user;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.dto.UserDtoResponse;
+import ru.practicum.shareit.validation.ValidationGroups;
+
+import java.util.Collection;
+
+@RestController
+@RequestMapping(path = "/internal/users")
+@RequiredArgsConstructor
+public class UserController {
+    private final UserService userService;
+
+    @GetMapping
+    public Collection<UserDtoResponse> getAll() {
+        return userService.getAllUsers();
+    }
+
+    @GetMapping("/{userId}")
+    public UserDtoResponse getById(@PathVariable long userId) {
+        return userService.getUserDtoById(userId);
+    }
+
+    @PostMapping
+    public UserDtoResponse create(@Validated(ValidationGroups.Create.class) @RequestBody UserDto userDto) {
+        return userService.createUser(userDto);
+    }
+
+    @PatchMapping("/{userId}")
+    public UserDtoResponse edit(@PathVariable long userId,@Validated(ValidationGroups.Edit.class) @RequestBody UserDto userDto) {
+        return userService.editUser(userId, userDto);
+    }
+
+    @DeleteMapping("/{userId}")
+    public UserDtoResponse delete(@PathVariable long userId) {
+        return userService.deleteUser(userId);
+    }
+}

@@ -46,7 +46,7 @@ public class ItemRequestServiceImpl implements ItemRequestService {
 
         Map<Long, List<Item>> itemsGroupedByRequestId = getAndGroupItemsByRequest();
 
-        return itemRequestRepository.findByRequestorId(userId)
+        return itemRequestRepository.findByRequestorIdOrderByCreatedDesc(userId)
                 .stream()
                 .map(itemRequest -> {
                     List<ItemDtoResponse> itemsToRequest = itemsGroupedByRequestId.getOrDefault(itemRequest.getId(), List.of())
@@ -65,7 +65,7 @@ public class ItemRequestServiceImpl implements ItemRequestService {
 
         Map<Long, List<Item>> itemsGroupedByRequestId = getAndGroupItemsByRequest();
 
-        return itemRequestRepository.findAll()
+        return itemRequestRepository.findByRequestorIdNotOrderByCreatedDesc(userId)
                 .stream()
                 .map(itemRequest -> {
                     List<ItemDtoResponse> itemsToRequest = itemsGroupedByRequestId.getOrDefault(itemRequest.getId(), List.of())

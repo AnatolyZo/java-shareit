@@ -77,7 +77,7 @@ public class ItemRequestServiceTests {
         List<ItemRequestDtoResponse> expectedItemRequests = List.of(formExpectedItemRequestWithItem(created));
 
         List<ItemRequest> itemRequests = List.of(formItemRequest(formRequestor(), created));
-        when(itemRequestRepository.findByRequestorId(userId))
+        when(itemRequestRepository.findByRequestorIdOrderByCreatedDesc(userId))
                 .thenReturn(itemRequests);
 
         Item item = formItem();
@@ -95,7 +95,7 @@ public class ItemRequestServiceTests {
         List<ItemRequestDtoResponse> expectedItemRequests = List.of(formExpectedItemRequestWithItem(created));
 
         List<ItemRequest> itemRequests = List.of(formItemRequest(formRequestor(), created));
-        when(itemRequestRepository.findAll())
+        when(itemRequestRepository.findByRequestorIdNotOrderByCreatedDesc(userId))
                 .thenReturn(itemRequests);
 
         Item item = formItem();
